@@ -1,0 +1,9 @@
+{
+  "name": "httpfslib",
+  "version": "0.0.1",
+  "description": "Support library for implementing a httpfs backend",
+  "main": "lib.js",
+  "repository": "git@github.com:tilmankamp/httpfslib.git",
+  "author": "Tilman Kamp <5991088+tilmankamp@users.noreply.github.com>",
+  "license": "MIT"
+}
