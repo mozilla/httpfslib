@@ -5,5 +5,8 @@
   "main": "lib.js",
   "repository": "git@github.com:tilmankamp/httpfslib.git",
   "author": "Tilman Kamp <5991088+tilmankamp@users.noreply.github.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "buffer-serializer": "^1.1.0"
+  }
 }
