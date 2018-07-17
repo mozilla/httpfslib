@@ -145,103 +145,134 @@ const dirAttributes = {
     gid: gid
 }
 
-
 var serializer = new BufferSerializer()
 
 var exports = module.exports = {}
 
-const operations = {
-    init:        (cb)                                               => undefined,
-    access:      (path, mode, cb)                                   => undefined,
-    statfs:      (path, cb)                                         => undefined,
-    getattr:     (path, cb)                                         => undefined,
-    fgetattr:    (path, fd, cb)                                     => undefined,
-    flush:       (path, fd, cb)                                     => undefined,
-    fsync:       (path, fd, datasync, cb)                           => undefined,
-    readdir:     (path, cb)                                         => undefined,
-    truncate:    (path, size, cb)                                   => undefined,
-    ftruncate:   (path, fd, size, cb)                               => undefined,
-    readlink:    (path, cb)                                         => undefined,
-    chown:       (path, uid, gid, cb)                               => undefined,
-    chmod:       (path, mode, cb)                                   => undefined,
-    mknod:       (path, mode, dev, cb)                              => undefined,
-    setxattr:    (path, name, buffer, length, offset, flags, cb)    => undefined,
-    getxattr:    (path, name, buffer, length, offset, cb)           => undefined,
-    listxattr:   (path, buffer, length, cb)                         => undefined,
-    removexattr: (path, name, cb)                                   => undefined,
-    open:        (path, flags, cb)                                  => undefined,
-    opendir:     (path, flags, cb)                                  => undefined,
-    read:        (path, fd, buffer, length, offset, cb)             => undefined,
-    write:       (path, fd, buffer, length, offset, cb)             => undefined,
-    release:     (path, fd, cb)                                     => undefined,
-    releasedir:  (path, fd, cb)                                     => undefined,
-    create:      (path, mode, cb)                                   => undefined,
-    utimens:     (path, atime, mtime, cb)                           => undefined,
-    unlink:      (path, cb)                                         => undefined,
-    rename:      (src, dest, cb)                                    => undefined,
-    link:        (src, dest, cb)                                    => undefined,
-    symlink:     (src, dest, cb)                                    => undefined,
-    mkdir:       (path, mode, cb)                                   => undefined,
-    rmdir:       (path, cb)                                         => undefined,
-    destroy:     (cb)                                               => undefined
-}
-
 exports.real = function (basePath) {
+    let getRealPath = (pathItems, cb, cont) => {
+        let newPath = path.resolve(basePath, path.join(basePath, ...pathItems))
+        if (newPath.startsWith(basePath)) {
+            cont(newPath)
+        } else {
+            cb([unixCodes.EACCES])
+        }
+    }
     return {
-        access:      (path, mode, cb)                                   => undefined,
-        statfs:      (path, cb)                                         => undefined,
-        getattr:     (path, cb)                                         => undefined,
-        fgetattr:    (path, fd, cb)                                     => undefined,
-        flush:       (path, fd, cb)                                     => undefined,
-        fsync:       (path, fd, datasync, cb)                           => undefined,
-        readdir:     (path, cb)                                         => undefined,
-        truncate:    (path, size, cb)                                   => undefined,
-        ftruncate:   (path, fd, size, cb)                               => undefined,
-        readlink:    (path, cb)                                         => undefined,
-        chown:       (path, uid, gid, cb)                               => undefined,
-        chmod:       (path, mode, cb)                                   => undefined,
-        mknod:       (path, mode, dev, cb)                              => undefined,
-        setxattr:    (path, name, buffer, length, offset, flags, cb)    => undefined,
-        getxattr:    (path, name, length, offset, cb)                   => undefined,
-        listxattr:   (path, buffer, length, cb)                         => undefined,
-        removexattr: (path, name, cb)                                   => undefined,
-        open:        (path, flags, cb)                                  => undefined,
-        opendir:     (path, flags, cb)                                  => undefined,
-        read:        (path, fd, length, offset, cb)                     => undefined,
-        write:       (path, fd, buffer, length, offset, cb)             => undefined,
-        release:     (path, fd, cb)                                     => undefined,
-        releasedir:  (path, fd, cb)                                     => undefined,
-        create:      (path, mode, cb)                                   => undefined,
-        utimens:     (path, atime, mtime, cb)                           => undefined,
-        unlink:      (path, cb)                                         => undefined,
-        rename:      (path, dest, cb)                                   => undefined,
-        link:        (path, dest, cb)                                   => undefined,
-        symlink:     (path, dest, cb)                                   => undefined,
-        mkdir:       (path, mode, cb)                                   => undefined,
-        rmdir:       (path, cb)                                         => undefined
+        getattr:    (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => fs.stat    (realPath,        
+                (err, stats) => err ? cb([err.errno || unixCodes.ENOENT]) : cb([0, stats])
+            )
+        ),
+        readdir:    (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => fs.readdir (realPath,        
+                (err, files) => err ? cb([err.errno || unixCodes.ENOENT]) : cb([0, files])
+            )
+        ),
+        truncate:   (pathItems, size, cb)                        => getRealPath(pathItems, cb,
+            realPath => fs.truncate(realPath, size,  
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        chown:      (pathItems, uid, gid, cb)                    => getRealPath(pathItems, cb,
+            realPath => fs.chown(realPath, uid, gid, 
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        chmod:      (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
+            realPath => fs.chmod(realPath, mode,     
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        read:       (pathItems, fd, length, offset, cb)          => getRealPath(pathItems, cb,
+            realPath => {
+                let buffer = Buffer.alloc(length)
+                let file = fs.open(realPath, 'r', (err, fd) => {
+                    if (err) {
+                        cb([err.errno || unixCodes.ENOENT])
+                    } else {
+                        fs.read(fd, buffer, 0, length, offset, 
+                            (err, numw) => {
+                                if (err) {
+                                    cb([err.errno || unixCodes.ENOENT])
+                                } else {
+                                    fs.close(fd, err => err ? cb([err.errno || unixCodes.ENOENT]) : cb([numw, buffer.slice(0, numw)]))
+                                }
+                            }
+                        )
+                    }
+                })
+            }
+        ),
+        write:      (pathItems, fd, buffer, offset, cb)  => getRealPath(pathItems, cb,
+            realPath => {
+                let file = fs.open(realPath, 'w', (err, fd) => {
+                    if (err) {
+                        cb([err.errno || unixCodes.ENOENT])
+                    } else {
+                        fs.write(fd, buffer, 0, buffer.length, offset, 
+                            (err, numw) => {
+                                if (err) {
+                                    cb([err.errno || unixCodes.ENOENT])
+                                } else {
+                                    fs.close(fd, err => cb([err ? (err.errno || unixCodes.ENOENT) : numw]))
+                                }
+                            }
+                        )
+                    }
+                })
+            }
+        ),
+        create:     (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
+            realPath => fs.open(realPath, 'w', mode, (err, fd) => {
+                if (err) {
+                    cb([err.errno || unixCodes.ENOENT])
+                } else {
+                    fs.close(fd, err => cb([err ? (err.errno || unixCodes.ENOENT) : 0]))
+                }
+            })
+        ),
+        utimens:    (pathItems, atime, mtime, cb)                => getRealPath(pathItems, cb,
+            realPath => fs.utimes(realPath, atime, mtime,     
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        unlink:     (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => fs.unlink(realPath,     
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        rename:     (pathItems, dest, cb)                        => getRealPath(pathItems, cb,
+            realPath => getRealPath(dest.split('/').filter(v => v.length > 0), cb, 
+                destPath => fs.rename(realPath, destPath,
+                    (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+                )
+            )
+        ),
+        mkdir:      (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
+            realPath => fs.mkdir(realPath, mode,    
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        ),
+        rmdir:      (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => fs.rmdir(realPath, 
+                (err) => cb([err ? (err.errno || unixCodes.ENOENT) : 0])
+            )
+        )
     }
 }
 
 exports.readOnly = function (other) {
     return {
-        statfs:      other.statfs,
-        getattr:     other.getattr,
-        fgetattr:    other.fgetattr,
-        readdir:     other.readdir,
-        readlink:    other.readlink,
-        getxattr:    other.getxattr,
-        listxattr:   other.listxattr,
-        open:        (path, flags, cb) => flags & 3 === 0 ? other.open(path, flags, cb) : cb(NO),
-        opendir:     other.opendir,
-        read:        other.read,
-        release:     other.release,
-        releasedir:  other.releasedir
+        getattr:    other.getattr,
+        readdir:    other.readdir,
+        read:       other.read
     }
 }
 
 exports.vFile = function (buffer) {
     return {
-        getattr: (path, cb) => cb([0, {
+        getattr: (pathItems, cb) => cb([0, {
             mtime: stdDate,
             atime: stdDate,
             ctime: stdDate,
@@ -251,30 +282,30 @@ exports.vFile = function (buffer) {
             uid: uid,
             gid: gid
         }]),
-        open: (path, flags, cb) => cb(flags & 3 === 0 ? [0, 42] : NO),
-        read: (path, fd, length, offset, cb) => {
+        read: (pathItems, fd, length, offset, cb) => {
             let nb = buffer.slice(offset, offset + length)
             cb([nb.length, nb])
-        },
+        }
     }
 }
 
 exports.vDir = function (entries) {
     let dirOperations = {
-        getattr: (path, cb) => cb([0, dirAttributes]),
-        readdir: (path, cb) => cb([0, Object.keys(entries)])
+        getattr: (pathItems, cb) => cb([0, dirAttributes]),
+        readdir: (pathItems, cb) => cb([0, Object.keys(entries)])
     }
     return new Proxy({}, {
         get: (target, operation, receiver) => function () {
             let args = Array.from(arguments)
             let pathItems = args[0]
             let cb = args[args.length - 1]
+            if (!cb || {}.toString.call(cb) !== '[object Function]') {
+                return
+            }
             let operations = pathItems.length > 0 ? entries[pathItems.shift()] : dirOperations
-            console.log('Operation(s):', operations, operation)
             if (operations) {
                 let operationFunction = operations[operation]
                 if (operationFunction) {
-                    console.log('Applying: ', operationFunction, args)
                     operationFunction.apply(null, args)
                 } else {
                     cb(NO)
@@ -287,7 +318,9 @@ exports.vDir = function (entries) {
 }
 
 exports.serve = function (root, call, cb) {
-    let wrap = args => cb(serializer.toBuffer(args))
+    let wrap = args => {
+        cb(serializer.toBuffer(args))
+    }
     if (!root) {
         wrap(NO)
     }
@@ -298,7 +331,6 @@ exports.serve = function (root, call, cb) {
             let args = call.args
             args[0] = args[0].split('/').filter(v => v.length > 0)
             args = args.concat([wrap])
-            console.log('Applying: ', operation, args)
             operation.apply(null, args)
         } else {
             wrap(NO)
