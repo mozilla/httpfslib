@@ -3,16 +3,14 @@ const http = require('http')
 const fslib = require('./lib.js')
 
 const port = 3000
-/*
+
 const root = fslib.vDir({
     a: fslib.vDir({
-        'b.txt': fslib.vFile(Buffer.from('Das ist...'))
+        'b.txt': fslib.vFile(Buffer.from('Das ist...')),
+        'taumel': fslib.readOnly(fslib.real(__dirname))
     }),
     'c.txt': fslib.vFile(Buffer.from('... großartig!'))
 })
-*/
-
-const root = fslib.real(__dirname)
 
 http
     .createServer((req, res) => {

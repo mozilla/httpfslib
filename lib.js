@@ -160,12 +160,21 @@ exports.real = function (basePath) {
     }
     return {
         getattr:    (pathItems, cb)                              => getRealPath(pathItems, cb,
-            realPath => fs.stat    (realPath,        
-                (err, stats) => err ? cb([err.errno || unixCodes.ENOENT]) : cb([0, stats])
+            realPath => fs.stat(realPath,        
+                (err, stats) => err ? cb([err.errno || unixCodes.ENOENT]) : cb([0, {
+                    mtime: stats.mtime,
+                    atime: stats.atime,
+                    ctime: stats.ctime,
+                    nlink: stats.nlink,
+                    size:  stats.size,
+                    mode:  stats.mode,
+                    uid:   uid,
+                    gid:   gid
+                }])
             )
         ),
         readdir:    (pathItems, cb)                              => getRealPath(pathItems, cb,
-            realPath => fs.readdir (realPath,        
+            realPath => fs.readdir(realPath,        
                 (err, files) => err ? cb([err.errno || unixCodes.ENOENT]) : cb([0, files])
             )
         ),
@@ -264,9 +273,28 @@ exports.real = function (basePath) {
 
 exports.readOnly = function (other) {
     return {
-        getattr:    other.getattr,
+        getattr:    (pathItems, cb) => other.getattr(pathItems, args => {
+            let code = args[0]
+            let attr = args[1]
+            if (code === 0) {
+                attr.mode = attr.mode & 0xffffff6d
+                cb([0, attr])
+            } else {
+                cb([code])
+            }
+        }),
         readdir:    other.readdir,
-        read:       other.read
+        read:       other.read,
+        truncate:   (pathItems, size, cb)               => cb([unixCodes.EACCES]),
+        chown:      (pathItems, uid, gid, cb)           => cb([unixCodes.EACCES]),
+        chmod:      (pathItems, mode, cb)               => cb([unixCodes.EACCES]),
+        write:      (pathItems, fd, buffer, offset, cb) => cb([unixCodes.EACCES]),
+        create:     (pathItems, mode, cb)               => cb([unixCodes.EACCES]),
+        utimens:    (pathItems, atime, mtime, cb)       => cb([unixCodes.EACCES]),
+        unlink:     (pathItems, cb)                     => cb([unixCodes.EACCES]),
+        rename:     (pathItems, dest, cb)               => cb([unixCodes.EACCES]),
+        mkdir:      (pathItems, mode, cb)               => cb([unixCodes.EACCES]),
+        rmdir:      (pathItems, cb)                     => cb([unixCodes.EACCES]),
     }
 }
 
@@ -308,10 +336,10 @@ exports.vDir = function (entries) {
                 if (operationFunction) {
                     operationFunction.apply(null, args)
                 } else {
-                    cb(NO)
+                    cb([unixCodes.EACCES])
                 }
             } else {
-                cb(NO)
+                cb([unixCodes.EACCES])
             }
         }
     })
@@ -336,6 +364,6 @@ exports.serve = function (root, call, cb) {
             wrap(NO)
         }
     } else {
-        wrap(NO)
+        wrap([unixCodes.EACCES])
     }
 }
