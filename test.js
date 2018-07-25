@@ -3,7 +3,6 @@ const http = require('http')
 const fslib = require('./lib.js')
 
 const port = 3000
-
 const root = fslib.vDir({
     a: fslib.vDir({
         'b.txt': fslib.vFile(Buffer.from('Das ist...')),
