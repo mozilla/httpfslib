@@ -280,17 +280,7 @@ exports.readOnly = function (other) {
             }
         }),
         readdir:    other.readdir,
-        read:       other.read,
-        truncate:   (pathItems, size, cb)               => cb(unixCodes.EACCES),
-        chown:      (pathItems, uid, gid, cb)           => cb(unixCodes.EACCES),
-        chmod:      (pathItems, mode, cb)               => cb(unixCodes.EACCES),
-        write:      (pathItems, fd, buffer, offset, cb) => cb(unixCodes.EACCES),
-        create:     (pathItems, mode, cb)               => cb(unixCodes.EACCES),
-        utimens:    (pathItems, atime, mtime, cb)       => cb(unixCodes.EACCES),
-        unlink:     (pathItems, cb)                     => cb(unixCodes.EACCES),
-        rename:     (pathItems, dest, cb)               => cb(unixCodes.EACCES),
-        mkdir:      (pathItems, mode, cb)               => cb(unixCodes.EACCES),
-        rmdir:      (pathItems, cb)                     => cb(unixCodes.EACCES),
+        read:       other.read
     }
 }
 
