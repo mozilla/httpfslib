@@ -303,20 +303,27 @@ exports.vFile = function (buffer) {
     }
 }
 
-exports.vDir = function (entries) {
+exports.vDir = function (entries, entry) {
     let dirOperations = {
         getattr: (pathItems, cb) => cb(0, dirAttributes),
-        readdir: (pathItems, cb) => cb(0, Object.keys(entries))
+        readdir: (pathItems, cb) => cb(0, typeof entries === 'function' ? entries() : Object.keys(entries))
     }
     return new Proxy({}, {
         get: (target, operation, receiver) => function () {
             let args = Array.from(arguments)
             let pathItems = args[0]
             let cb = args[args.length - 1]
-            if (!cb || {}.toString.call(cb) !== '[object Function]') {
+            if (!cb || typeof cb !== 'function') {
                 return
             }
-            let operations = pathItems.length > 0 ? entries[pathItems.shift()] : dirOperations
+            let operations = dirOperations
+            if (pathItems.length > 0) {
+                let item = pathItems.shift()
+                operations = typeof entry === 'function' ? entry(item) : entries[item]
+                if (typeof operations === "function") {
+                    operations = operations()
+                }
+            }
             if (operations) {
                 let operationFunction = operations[operation]
                 if (operationFunction) {

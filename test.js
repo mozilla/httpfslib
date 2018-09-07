@@ -5,10 +5,9 @@ const fslib = require('./lib.js')
 const port = 3000
 const root = fslib.vDir({
     a: fslib.vDir({
-        'b.txt': fslib.vFile(Buffer.from('Das ist...')),
-        'taumel': fslib.readOnly(fslib.real(__dirname))
+        'b.txt': fslib.vFile(Buffer.from('Das ist '))
     }),
-    'c.txt': fslib.vFile(Buffer.from('... großartig!'))
+    'c.txt': fslib.vFile(Buffer.from('großartig!\n'))
 })
 
 http
@@ -18,7 +17,7 @@ http
         req.on('end', () => fslib.serve(root, Buffer.concat(chunks), result => {
             res.write(result)
             res.end()
-        }));
+        }))
     })
     .listen(port, err => {
         if (err) {
