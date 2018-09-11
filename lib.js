@@ -320,7 +320,7 @@ exports.vDir = function (entries, entry) {
             if (pathItems.length > 0) {
                 let item = pathItems.shift()
                 operations = typeof entry === 'function' ? entry(item) : entries[item]
-                if (typeof operations === "function") {
+                if (typeof operations === 'function') {
                     operations = operations()
                 }
             }
