@@ -181,6 +181,11 @@ exports.real = function (basePath) {
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         ),
+        readlink:   (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => fs.readlink(realPath,        
+                (err, link) => err ? cb(err.errno || unixCodes.ENOENT) : cb(0, link)
+            )
+        ),
         chown:      (pathItems, uid, gid, cb)                    => getRealPath(pathItems, cb,
             realPath => fs.chown(realPath, uid, gid, 
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
@@ -256,6 +261,13 @@ exports.real = function (basePath) {
                 )
             )
         ),
+        symlink:    (pathItems, dest, cb)                        => getRealPath(pathItems, cb,
+            realPath => getRealPath(dest.split('/').filter(v => v.length > 0), cb, 
+                destPath => fs.symlink(realPath, destPath,
+                    (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
+                )
+            )
+        ),
         mkdir:      (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
             realPath => fs.mkdir(realPath, mode,    
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
@@ -266,6 +278,7 @@ exports.real = function (basePath) {
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         )
+
     }
 }
 
