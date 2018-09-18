@@ -132,6 +132,7 @@ const unixCodes = {
 const uid = process.getuid ? process.getuid() : 0
 const gid = process.getgid ? process.getgid() : 0
 const stdDate = new Date()
+const selfReadWriteMask = parseInt("600", 8)
 const dirAttributes = {
     mtime:  stdDate,
     atime:  stdDate,
@@ -157,6 +158,9 @@ exports.real = function (basePath) {
         }
     }
     return {
+        destpath:   (pathItems, cb)                              => getRealPath(pathItems, cb,
+            realPath => cb(0, realPath)
+        ),
         getattr:    (pathItems, cb)                              => getRealPath(pathItems, cb,
             realPath => fs.lstat(realPath,        
                 (err, stats) => err ? cb(err.errno || unixCodes.ENOENT) : cb(0, {
@@ -236,7 +240,7 @@ exports.real = function (basePath) {
             }
         ),
         create:     (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
-            realPath => fs.open(realPath, 'w', mode, (err, fd) => {
+            realPath => fs.open(realPath, 'w', mode | selfReadWriteMask, (err, fd) => {
                 if (err) {
                     cb(err.errno || unixCodes.ENOENT)
                 } else {
@@ -254,12 +258,12 @@ exports.real = function (basePath) {
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         ),
-        rename:     (pathItems, dest, cb)                        => getRealPath(pathItems, cb,
-            realPath => getRealPath(dest.split('/').filter(v => v.length > 0), cb, 
-                destPath => fs.rename(realPath, destPath,
+        rename:     (pathItems, destPath, cb)                   => getRealPath(pathItems, cb,
+            realPath => {
+                fs.rename(realPath, destPath,
                     (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
                 )
-            )
+            }
         ),
         link:    (pathItems, dest, cb)                           => getRealPath(pathItems, cb,
             realPath => fs.link(dest, realPath, 
@@ -354,22 +358,47 @@ exports.vDir = function (entries, entry) {
     })
 }
 
+//let isBuffer = obj => obj != null && obj.constructor != null && obj.constructor.isBuffer
+
 exports.serve = function (root, call, cb) {
-    //let cargs
+    let cargs
     let wrap = (...args) => {
-        //console.log(call.operation, cargs, JSON.stringify(args))
+        //if (args.length > 0 && args[0] < 0 || call.operation == 'mkdir') {
+        //    console.log(call.operation, cargs, JSON.stringify(args.filter(obj => !isBuffer(obj))))
+        //}
         cb(serializer.toBuffer(args))
     }
     if (!root) {
         wrap(unixCodes.ENOENT)
     }
     call = serializer.fromBuffer(call)
-    //cargs = JSON.stringify(call.args)
+    //cargs = JSON.stringify(call.args.filter(obj => !isBuffer(obj)))
     let operation = root[call.operation]
     if (operation) {
         if (call.args.length > 0) {
-            let pathItems = call.args.shift().split('/').filter(v => v.length > 0)
-            operation(pathItems, ...call.args, wrap)
+            let shiftItems = () => call.args.shift().split('/').filter(v => v.length > 0)
+            let pathItems = shiftItems()
+            if (call.operation === 'rename') {
+                if (call.args.length > 0) {
+                    let destItems = shiftItems()
+                    let destpath = root['destpath']
+                    if (destpath) {
+                        destpath(destItems, (code, destPath) => {
+                            if (code == 0) {
+                                operation(pathItems, destPath, ...call.args, wrap)
+                            } else {
+                                wrap(code)
+                            }
+                        })
+                    } else {
+                        wrap(unixCodes.EACCES)
+                    }
+                } else {
+                    wrap(unixCodes.ENOENT)
+                }
+            } else {
+                operation(pathItems, ...call.args, wrap)
+            }
         } else {
             wrap(unixCodes.ENOENT)
         }
