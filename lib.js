@@ -158,7 +158,7 @@ exports.real = function (basePath) {
     }
     return {
         getattr:    (pathItems, cb)                              => getRealPath(pathItems, cb,
-            realPath => fs.stat(realPath,        
+            realPath => fs.lstat(realPath,        
                 (err, stats) => err ? cb(err.errno || unixCodes.ENOENT) : cb(0, {
                     mtime: stats.mtime,
                     atime: stats.atime,
@@ -183,7 +183,7 @@ exports.real = function (basePath) {
         ),
         readlink:   (pathItems, cb)                              => getRealPath(pathItems, cb,
             realPath => fs.readlink(realPath,        
-                (err, link) => err ? cb(err.errno || unixCodes.ENOENT) : cb(0, link)
+                (err, link) => err ? cb(err.errno || unixCodes.ENOENT) : cb(null, link)
             )
         ),
         chown:      (pathItems, uid, gid, cb)                    => getRealPath(pathItems, cb,
@@ -218,7 +218,7 @@ exports.real = function (basePath) {
         ),
         write:      (pathItems, fd, buffer, offset, cb)  => getRealPath(pathItems, cb,
             realPath => {
-                let file = fs.open(realPath, 'w', (err, fd) => {
+                let file = fs.open(realPath, 'a', (err, fd) => {
                     if (err) {
                         cb(err.errno || unixCodes.ENOENT)
                     } else {
@@ -261,11 +261,14 @@ exports.real = function (basePath) {
                 )
             )
         ),
+        link:    (pathItems, dest, cb)                           => getRealPath(pathItems, cb,
+            realPath => fs.link(dest, realPath, 
+                (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
+            )
+        ),
         symlink:    (pathItems, dest, cb)                        => getRealPath(pathItems, cb,
-            realPath => getRealPath(dest.split('/').filter(v => v.length > 0), cb, 
-                destPath => fs.symlink(realPath, destPath,
-                    (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
-                )
+            realPath => fs.symlink(dest, realPath, 
+                (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         ),
         mkdir:      (pathItems, mode, cb)                        => getRealPath(pathItems, cb,
@@ -352,13 +355,16 @@ exports.vDir = function (entries, entry) {
 }
 
 exports.serve = function (root, call, cb) {
+    //let cargs
     let wrap = (...args) => {
+        //console.log(call.operation, cargs, JSON.stringify(args))
         cb(serializer.toBuffer(args))
     }
     if (!root) {
         wrap(unixCodes.ENOENT)
     }
     call = serializer.fromBuffer(call)
+    //cargs = JSON.stringify(call.args)
     let operation = root[call.operation]
     if (operation) {
         if (call.args.length > 0) {
@@ -368,6 +374,7 @@ exports.serve = function (root, call, cb) {
             wrap(unixCodes.ENOENT)
         }
     } else {
+        console.log(call.operation, false)
         wrap(unixCodes.EACCES)
     }
 }
