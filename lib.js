@@ -358,21 +358,25 @@ exports.vDir = function (entries, entry) {
     })
 }
 
-//let isBuffer = obj => obj != null && obj.constructor != null && obj.constructor.isBuffer
+let isBuffer = obj => obj != null && obj.constructor != null && obj.constructor.isBuffer
 
-exports.serve = function (root, call, cb) {
+exports.serve = function (root, call, cb, debug) {
     let cargs
     let wrap = (...args) => {
-        //if (args.length > 0 && args[0] < 0 || call.operation == 'mkdir') {
-        //    console.log(call.operation, cargs, JSON.stringify(args.filter(obj => !isBuffer(obj))))
-        //}
+        if (debug || (args.length > 0 && args[0] < 0)) {
+            console.log(call.operation, cargs, args.filter(obj => !isBuffer(obj)))
+        }
         cb(serializer.toBuffer(args))
     }
     if (!root) {
-        wrap(unixCodes.ENOENT)
+        return wrap(unixCodes.ENOENT)
     }
-    call = serializer.fromBuffer(call)
-    //cargs = JSON.stringify(call.args.filter(obj => !isBuffer(obj)))
+    try {
+        call = serializer.fromBuffer(call)
+    } catch (ex) {
+        return wrap(unixCodes.ENOENT)
+    }
+    cargs = call.args.filter(obj => !isBuffer(obj))
     let operation = root[call.operation]
     if (operation) {
         if (call.args.length > 0) {
