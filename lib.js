@@ -200,10 +200,10 @@ exports.real = function (basePath) {
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         ),
-        read:       (pathItems, fd, length, offset, cb)          => getRealPath(pathItems, cb,
+        read:       (pathItems, offset, length, cb)          => getRealPath(pathItems, cb,
             realPath => {
                 let buffer = Buffer.alloc(length)
-                let file = fs.open(realPath, 'r', (err, fd) => {
+                fs.open(realPath, 'r', (err, fd) => {
                     if (err) {
                         cb(err.errno || unixCodes.ENOENT)
                     } else {
@@ -220,9 +220,9 @@ exports.real = function (basePath) {
                 })
             }
         ),
-        write:      (pathItems, fd, buffer, offset, cb)  => getRealPath(pathItems, cb,
+        write:      (pathItems, buffer, offset, cb)  => getRealPath(pathItems, cb,
             realPath => {
-                let file = fs.open(realPath, 'a', (err, fd) => {
+                fs.open(realPath, 'a', (err, fd) => {
                     if (err) {
                         cb(err.errno || unixCodes.ENOENT)
                     } else {
@@ -316,7 +316,7 @@ exports.vFile = function (buffer) {
             uid:    uid,
             gid:    gid
         }),
-        read: (pathItems, fd, length, offset, cb) => {
+        read: (pathItems, offset, length, cb) => {
             let nb = buffer.slice(offset, offset + length)
             cb(nb.length, nb)
         }
@@ -361,9 +361,15 @@ exports.vDir = function (entries, entry) {
 let isBuffer = obj => obj != null && obj.constructor != null && obj.constructor.isBuffer
 
 exports.serve = function (root, call, cb, debug) {
+    let debugOps = {}
+    if (typeof debug === 'string') {
+        for(let op of debug.toLowerCase().split(',')) {
+            debugOps[op] = true
+        }
+    }
     let cargs
     let wrap = (...args) => {
-        if (debug || (args.length > 0 && args[0] < 0)) {
+        if (debugOps['all'] || debugOps[call.operation] || (args.length > 0 && args[0] < 0)) {
             console.log(call.operation, cargs, args.filter(obj => !isBuffer(obj)))
         }
         cb(serializer.toBuffer(args))

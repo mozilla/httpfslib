@@ -1,14 +1,15 @@
 #!/usr/bin/env node
+const fs = require('fs')
 const http = require('http')
 const fslib = require('./lib.js')
 
+const demoDir = '/tmp/httpfsdemo'
+try {
+    fs.mkdirSync(demoDir)
+} catch (ex) {}
+
 const port = 3000
-const root = fslib.vDir({
-    a: fslib.vDir({
-        'b.txt': fslib.vFile(Buffer.from('Das ist '))
-    }),
-    'c.txt': fslib.vFile(Buffer.from('großartig!\n'))
-})
+const root = fslib.real(demoDir)
 
 http
     .createServer((req, res) => {
@@ -17,7 +18,7 @@ http
         req.on('end', () => fslib.serve(root, Buffer.concat(chunks), result => {
             res.write(result)
             res.end()
-        }))
+        }, process.env.HTTPFS_DEBUG))
     })
     .listen(port, err => {
         if (err) {
