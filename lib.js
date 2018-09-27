@@ -369,7 +369,7 @@ exports.serve = function (root, call, cb, debug) {
     }
     let cargs
     let wrap = (...args) => {
-        if (debugOps['all'] || debugOps[call.operation] || (args.length > 0 && args[0] < 0)) {
+        if (debugOps['all'] || debugOps[call.operation] || (args.length > 0 && args[0] < 0 && call.operation != 'getattr')) {
             console.log(call.operation, cargs, args.filter(obj => !isBuffer(obj)))
         }
         cb(serializer.toBuffer(args))
