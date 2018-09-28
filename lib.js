@@ -2,6 +2,25 @@ const fs = require('fs')
 const path = require('path')
 const BufferSerializer = require('buffer-serializer')
 
+const argCount = {
+    getattr:  0,
+    readdir:  0,
+    truncate: 1,
+    readlink: 0,
+    chown:    2,
+    chmod:    1,
+    read:     2,
+    write:    2,
+    create:   1,
+    utimens:  2,
+    unlink:   0,
+    rename:   1,
+    link:     1,
+    symlink:  1,
+    mkdir:    1,
+    rmdir:    0
+}
+
 const unixCodes = {
     EPERM: -1,
     ENOENT: -2,
@@ -200,7 +219,7 @@ exports.real = function (basePath) {
                 (err) => cb(err ? (err.errno || unixCodes.ENOENT) : 0)
             )
         ),
-        read:       (pathItems, offset, length, cb)          => getRealPath(pathItems, cb,
+        read:       (pathItems, offset, length, cb)              => getRealPath(pathItems, cb,
             realPath => {
                 let buffer = Buffer.alloc(length)
                 fs.open(realPath, 'r', (err, fd) => {
@@ -388,26 +407,30 @@ exports.serve = function (root, call, cb, debug) {
         if (call.args.length > 0) {
             let shiftItems = () => call.args.shift().split('/').filter(v => v.length > 0)
             let pathItems = shiftItems()
-            if (call.operation === 'rename') {
-                if (call.args.length > 0) {
-                    let destItems = shiftItems()
-                    let destpath = root['destpath']
-                    if (destpath) {
-                        destpath(destItems, (code, destPath) => {
-                            if (code == 0) {
-                                operation(pathItems, destPath, ...call.args, wrap)
-                            } else {
-                                wrap(code)
-                            }
-                        })
+            if (call.args.length === argCount[call.operation]) {
+                if (call.operation === 'rename') {
+                    if (call.args.length > 0) {
+                        let destItems = shiftItems()
+                        let destpath = root['destpath']
+                        if (destpath) {
+                            destpath(destItems, (code, destPath) => {
+                                if (code == 0) {
+                                    operation(pathItems, destPath, ...call.args, wrap)
+                                } else {
+                                    wrap(code)
+                                }
+                            })
+                        } else {
+                            wrap(unixCodes.EACCES)
+                        }
                     } else {
-                        wrap(unixCodes.EACCES)
+                        wrap(unixCodes.ENOENT)
                     }
                 } else {
-                    wrap(unixCodes.ENOENT)
+                    operation(pathItems, ...call.args, wrap)
                 }
             } else {
-                operation(pathItems, ...call.args, wrap)
+                wrap(unixCodes.EPROTO)
             }
         } else {
             wrap(unixCodes.ENOENT)
